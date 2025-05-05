@@ -1,0 +1,279 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <iomanip>
+#include <ctime>
+#include <sstream>
+
+using namespace std;
+
+
+template <typename T>
+string to_string(T value) {
+    ostringstream oss;
+    oss << value;
+    return oss.str();
+}
+
+class Account {
+private:
+    int accountNumber;
+    double balance;
+
+public:
+    Account(int accNum = 0, double initialBalance = 0.0) {
+        accountNumber = accNum;
+        balance = initialBalance;
+    }
+
+    int getAccountNumber() const {
+        return accountNumber;
+    }
+
+    double getBalance() const {
+        return balance;
+    }
+
+    void deposit(double amount) {
+        if (amount > 0) {
+            balance += amount;
+            cout << "Deposited: ₹" << amount << "\n";
+        }
+    }
+
+    bool withdraw(double amount) {
+        if (amount > 0 && amount <= balance) {
+            balance -= amount;
+            cout << "Withdrawn: ₹" << amount << "\n";
+            return true;
+        } else {
+            cout << "Insufficient balance!\n";
+            return false;
+        }
+    }
+
+    void setBalance(double newBalance) {
+        balance = newBalance;
+    }
+};
+
+class Customer {
+private:
+    string name;
+    int customerId;
+    Account account;
+
+public:
+    Customer(string n = "", int id = 0, int accNum = 0, double initialBalance = 0.0)
+        : name(n), customerId(id), account(accNum, initialBalance) {}
+
+    int getCustomerId() const {
+        return customerId;
+    }
+
+    void showDetails() const {
+        cout << "\nCustomer ID: " << customerId
+             << "\nName: " << name
+             << "\nAccount Number: " << account.getAccountNumber()
+             << "\nBalance: ₹" << fixed << setprecision(2) << account.getBalance()
+             << "\n";
+    }
+
+    Account& getAccount() {
+        return account;
+    }
+
+    string getName() const {
+        return name;
+    }
+
+    void setAccount(Account acc) {
+        account = acc;
+    }
+};
+
+// Utility function to log transactions
+void logTransaction(const string& message) {
+    ofstream logFile("transactions.txt", ios::app);
+    time_t now = time(0);
+    string timeStr = ctime(&now);
+    if (!timeStr.empty()) timeStr.erase(timeStr.size() - 1); // remove newline
+    logFile << "[" << timeStr << "] " << message << endl;
+}
+
+class BankingSystem {
+private:
+    vector<Customer> customers;
+
+    Customer* findCustomerById(int id) {
+        for (size_t i = 0; i < customers.size(); ++i) {
+            if (customers[i].getCustomerId() == id)
+                return &customers[i];
+        }
+        return NULL;
+    }
+
+public:
+    void addCustomer(string name, int id, int accNum, double initialDeposit) {
+        customers.push_back(Customer(name, id, accNum, initialDeposit));
+        cout << "Customer added successfully.\n";
+        logTransaction("New customer added: " + name + " (ID: " + to_string(id) + ")");
+    }
+
+    void deposit(int customerId, double amount) {
+        Customer* cust = findCustomerById(customerId);
+        if (cust) {
+            cust->getAccount().deposit(amount);
+            logTransaction("Deposit of ₹" + to_string(amount) + " to Customer ID " + to_string(customerId));
+        } else {
+            cout << "Customer not found!\n";
+        }
+    }
+
+    void withdraw(int customerId, double amount) {
+        Customer* cust = findCustomerById(customerId);
+        if (cust) {
+            if (cust->getAccount().withdraw(amount)) {
+                logTransaction("Withdrawal of ₹" + to_string(amount) + " from Customer ID " + to_string(customerId));
+            }
+        } else {
+            cout << "Customer not found!\n";
+        }
+    }
+
+    void transfer(int fromId, int toId, double amount) {
+        Customer* fromCust = findCustomerById(fromId);
+        Customer* toCust = findCustomerById(toId);
+        if (fromCust && toCust) {
+            if (fromCust->getAccount().withdraw(amount)) {
+                toCust->getAccount().deposit(amount);
+                logTransaction("Transfer of ₹" + to_string(amount) + " from Customer ID " + to_string(fromId)
+                               + " to Customer ID " + to_string(toId));
+                cout << "Transfer successful.\n";
+            }
+        } else {
+            cout << "One or both customers not found.\n";
+        }
+    }
+
+    void viewCustomer(int customerId) {
+        Customer* cust = findCustomerById(customerId);
+        if (cust) {
+            cust->showDetails();
+        } else {
+            cout << "Customer not found!\n";
+        }
+    }
+
+    void viewTransactionHistory() {
+        ifstream inFile("transactions.txt");
+        string line;
+        cout << "\n--- Transaction History ---\n";
+        while (getline(inFile, line)) {
+            cout << line << endl;
+        }
+        inFile.close();
+    }
+
+    void saveCustomersToFile() {
+        ofstream out("customers.txt");
+        for (size_t i = 0; i < customers.size(); ++i) {
+            out << customers[i].getCustomerId() << " "
+                << customers[i].getAccount().getAccountNumber() << " "
+                << customers[i].getAccount().getBalance() << " "
+                << customers[i].getName() << endl;
+        }
+        out.close();
+    }
+
+    void loadCustomersFromFile() {
+        ifstream in("customers.txt");
+        int id, accNum;
+        double balance;
+        string name;
+        while (in >> id >> accNum >> balance) {
+            in.ignore();
+            getline(in, name);
+            customers.push_back(Customer(name, id, accNum, balance));
+        }
+        in.close();
+    }
+};
+
+int main() {
+    BankingSystem bank;
+    bank.loadCustomersFromFile();
+
+    int choice;
+    while (true) {
+        cout << "\n--- Banking System Menu ---\n";
+        cout << "1. Add Customer\n2. Deposit\n3. Withdraw\n4. Transfer\n5. View Account\n6. View Transaction History\n7. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        if (choice == 1) {
+            string name;
+            int id, accNum;
+            double deposit;
+            cout << "Enter Name: ";
+            cin.ignore();
+            getline(cin, name);
+            cout << "Enter Customer ID: ";
+            cin >> id;
+            cout << "Enter Account Number: ";
+            cin >> accNum;
+            cout << "Enter Initial Deposit: ";
+            cin >> deposit;
+            bank.addCustomer(name, id, accNum, deposit);
+        }
+        else if (choice == 2) {
+            int id;
+            double amount;
+            cout << "Enter Customer ID: ";
+            cin >> id;
+            cout << "Enter Deposit Amount: ";
+            cin >> amount;
+            bank.deposit(id, amount);
+        }
+        else if (choice == 3) {
+            int id;
+            double amount;
+            cout << "Enter Customer ID: ";
+            cin >> id;
+            cout << "Enter Withdrawal Amount: ";
+            cin >> amount;
+            bank.withdraw(id, amount);
+        }
+        else if (choice == 4) {
+            int fromId, toId;
+            double amount;
+            cout << "Enter Sender Customer ID: ";
+            cin >> fromId;
+            cout << "Enter Receiver Customer ID: ";
+            cin >> toId;
+            cout << "Enter Amount to Transfer: ";
+            cin >> amount;
+            bank.transfer(fromId, toId, amount);
+        }
+        else if (choice == 5) {
+            int id;
+            cout << "Enter Customer ID: ";
+            cin >> id;
+            bank.viewCustomer(id);
+        }
+        else if (choice == 6) {
+            bank.viewTransactionHistory();
+        }
+        else if (choice == 7) {
+            bank.saveCustomersToFile();
+            cout << "Customer data saved. Exiting the system.\n";
+            break;
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
+    }
+
+    return 0;
+}
