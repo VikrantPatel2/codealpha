@@ -1,0 +1,152 @@
+#include <iostream>
+#include <vector>
+#include <bitset>
+using namespace std;
+
+#define N 9
+
+// Sudoku grid
+int grid[N][N];
+
+// Data structures for fast conflict checking
+bitset<N> rowBitset[N], colBitset[N], subgridBitset[3][3];
+
+// Function to print the Sudoku grid
+void printGrid() {
+    for (int row = 0; row < N; row++) {
+        for (int col = 0; col < N; col++) {
+            cout << grid[row][col] << " ";
+        }
+        cout << endl;
+    }
+}
+
+// Initialize the board and conflict sets
+void initialize() {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            rowBitset[i].reset();
+            colBitset[j].reset();
+            subgridBitset[i / 3][j / 3].reset();
+        }
+    }
+
+    // Populate the initial grid and conflict sets
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            if (grid[i][j] != 0) {
+                int num = grid[i][j] - 1;
+                rowBitset[i].set(num);
+                colBitset[j].set(num);
+                subgridBitset[i / 3][j / 3].set(num);
+            }
+        }
+    }
+}
+
+// Check if it's safe to place num at grid[row][col]
+bool isSafe(int row, int col, int num) {
+    return !rowBitset[row].test(num) && !colBitset[col].test(num) && !subgridBitset[row / 3][col / 3].test(num);
+}
+
+// Place a number and update the conflict sets
+void placeNum(int row, int col, int num) {
+    grid[row][col] = num + 1;
+    rowBitset[row].set(num);
+    colBitset[col].set(num);
+    subgridBitset[row / 3][col / 3].set(num);
+}
+
+// Remove a number and reset the conflict sets
+void removeNum(int row, int col, int num) {
+    grid[row][col] = 0;
+    rowBitset[row].reset(num);
+    colBitset[col].reset(num);
+    subgridBitset[row / 3][col / 3].reset(num);
+}
+
+
+pair<int, int> findEmptyCell() {
+    int minPossibilities = 10;
+    pair<int, int> bestCell = make_pair(-1, -1);
+
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            if (grid[i][j] == 0) {
+                int possibilities = 0;
+                for (int num = 0; num < N; num++) {
+                    if (isSafe(i, j, num)) {
+                        possibilities++;
+                    }
+                }
+
+                if (possibilities < minPossibilities) {
+                    minPossibilities = possibilities;
+                    bestCell = make_pair(i, j);
+                }
+            }
+        }
+    }
+
+    return bestCell;
+}
+
+// Backtracking function to solve Sudoku
+bool solveSudoku() {
+    pair<int, int> cell = findEmptyCell();
+    int row = cell.first;
+    int col = cell.second;
+
+    if (row == -1) {
+        return true; // No empty cells, solved
+    }
+
+    for (int num = 0; num < N; num++) {
+        if (isSafe(row, col, num)) {
+            placeNum(row, col, num);
+            if (solveSudoku()) {
+                return true;
+            }
+            removeNum(row, col, num); // Backtrack
+        }
+    }
+
+    return false; // No valid number found
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+
+    // Example Sudoku puzzle
+    int puzzle[N][N] = {
+        {5, 3, 0, 0, 7, 0, 0, 0, 0},
+        {6, 0, 0, 1, 9, 5, 0, 0, 0},
+        {0, 9, 8, 0, 0, 0, 0, 6, 0},
+
+        {8, 0, 0, 0, 6, 0, 0, 0, 3},
+        {4, 0, 0, 8, 0, 3, 0, 0, 1},
+        {7, 0, 0, 0, 2, 0, 0, 0, 6},
+
+        {0, 6, 0, 0, 0, 0, 2, 8, 0},
+        {0, 0, 0, 4, 1, 9, 0, 0, 5},
+        {0, 0, 0, 0, 8, 0, 0, 7, 9}
+    };
+
+    // Copy puzzle into the grid
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            grid[i][j] = puzzle[i][j];
+        }
+    }
+
+    initialize(); 
+
+    if (solveSudoku()) {
+        cout << "Solved Sudoku:\n";
+        printGrid();
+    } else {
+        cout << "No solution exists.\n";
+    }
+
+    return 0;
+}
